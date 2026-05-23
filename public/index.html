@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全科學習系統</title>
+    <!-- 引入 Tailwind CSS 进行页面样式设计 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Phosphor Icons 作为图标库 -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* 自定义一些平滑过渡动画 */
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* 隐藏滚动条但保留滚动功能 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- 顶部导航栏 -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo 和 标题 -->
+                <div class="flex items-center cursor-pointer" onclick="app.navigate('home')">
+                    <i class="ph-fill ph-student text-indigo-600 text-3xl mr-2"></i>
+                    <span class="font-bold text-xl text-slate-900 tracking-tight">智學通系統</span>
+                </div>
+                
+                <!-- 右上角操作区 (动态渲染) -->
+                <div id="nav-actions" class="flex items-center space-x-4">
+                    <!-- 按钮将由 JS 渲染 -->
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 消息提示框 (Toast) -->
+    <div id="toast-container" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2"></div>
+
+    <!-- 主要内容区域 -->
+    <main id="main-content" class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        <!-- 内容将由 JS 渲染 -->
+    </main>
+
+    <footer class="bg-white border-t border-slate-200 mt-auto py-6">
+        <div class="text-center text-slate-500 text-sm">
+            &copy; 2026 智學通全科學習系統. Designed for PacoIp. 準備部署於 Firebase.
+        </div>
+    </footer>
+
+    <script>
+        // --- 应用程序状态与数据 ---
+        const appState = {
+            currentUser: null,
+            currentView: 'login', // 一開始就是登入頁面
+            activeSubject: null,
+            // 内存中的用户数据库 (包含默认要求的账号)
+            users: [
+                { username: 'PacoIp', password: 'eusoupacopee' }
+            ],
+            // 7个科目的数据
+            subjects: [
+                { id: 'zh', name: '語文', icon: 'ph-book-open-text', color: 'bg-red-100 text-red-600', progress: 45, desc: '古詩文與現代閱讀體驗' },
+                { id: 'ma', name: '數學', icon: 'ph-function', color: 'bg-blue-100 text-blue-600', progress: 60, desc: '邏輯思維與代數幾何' },
+                { id: 'en', name: '英語', icon: 'ph-translate', color: 'bg-purple-100 text-purple-600', progress: 30, desc: '詞彙、語法與口語聽力' },
+                { id: 'ph', name: '物理', icon: 'ph-atom', color: 'bg-cyan-100 text-cyan-600', progress: 15, desc: '力學、電磁學與量子世界' },
+                { id: 'ch', name: '化學', icon: 'ph-flask', color: 'bg-emerald-100 text-emerald-600', progress: 80, desc: '元素週期表與化學反應' },
+                { id: 'bi', name: '生物', icon: 'ph-dna', color: 'bg-green-100 text-green-600', progress: 50, desc: '細胞、遺傳與生態系統' },
+                { id: 'hi', name: '歷史', icon: 'ph-hourglass-medium', color: 'bg-amber-100 text-amber-600', progress: 90, desc: '中外歷史長河與文明演進' }
+            ]
+        };
+
+        // --- 核心控制器 ---
+        const app = {
+            init() {
+                this.render();
+            },
+
+            navigate(view, data = null) {
+                appState.currentView = view;
+                if (data && view === 'subject') {
+                    appState.activeSubject = data;
+                } else {
+                    appState.activeSubject = null;
+                }
+                
+                // 路由守卫：如果访问 dashboard 但未登录，强制去登录页
+                if (view === 'dashboard' && !appState.currentUser) {
+                    this.showToast('請先登入系統', 'warning');
+                    appState.currentView = 'login';
+                }
+
+                this.render();
+            },
+
+            login(username, password) {
+                const user = appState.users.find(u => u.username === username && u.password === password);
+                if (user) {
+                    appState.currentUser = user.username;
+                    this.showToast(`歡迎回來, ${user.username}!`, 'success');
+                    this.navigate('dashboard');
+                } else {
+                    this.showToast('用戶名或密碼錯誤，請重試', 'error');
+                }
+            },
+
+            register(username, password) {
+                if (!username || !password) {
+                    this.showToast('用戶名和密碼不能為空', 'error');
+                    return;
+                }
+                if (appState.users.some(u => u.username === username)) {
+                    this.showToast('用戶名已存在', 'error');
+                    return;
+                }
+                appState.users.push({ username, password });
+                this.showToast('註冊成功！請登入', 'success');
+                this.navigate('login');
+            },
+
+            logout() {
+                appState.currentUser = null;
+                this.showToast('您已成功登出', 'info');
+                this.navigate('login'); // 改為退回到登入頁面
+            },
+
+            showToast(message, type = 'info') {
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                
+                let bgColor = 'bg-slate-800';
+                let icon = 'ph-info';
+                
+                if (type === 'success') { bgColor = 'bg-green-600'; icon = 'ph-check-circle'; }
+                if (type === 'error') { bgColor = 'bg-red-600'; icon = 'ph-warning-circle'; }
+                if (type === 'warning') { bgColor = 'bg-amber-500'; icon = 'ph-warning'; }
+
+                toast.className = `${bgColor} text-white px-6 py-3 rounded-full shadow-lg flex items-center space-x-2 fade-in transition-opacity duration-300`;
+                toast.innerHTML = `<i class="ph ${icon} text-xl"></i><span>${message}</span>`;
+                
+                container.appendChild(toast);
+                
+                // 3秒后移除
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            },
+
+            // --- 渲染方法 ---
+            render() {
+                this.renderNav();
+                this.renderMain();
+            },
+
+            renderNav() {
+                const navActions = document.getElementById('nav-actions');
+                if (appState.currentUser) {
+                    navActions.innerHTML = `
+                        <div class="flex items-center space-x-4">
+                            <span class="text-slate-600 hidden sm:inline-block">你好, <span class="font-bold text-indigo-600">${appState.currentUser}</span></span>
+                            <button onclick="app.navigate('dashboard')" class="text-slate-600 hover:text-indigo-600 font-medium transition-colors">我的學習</button>
+                            <button onclick="app.logout()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors">登出</button>
+                        </div>
+                    `;
+                } else {
+                    navActions.innerHTML = `
+                        <button onclick="app.navigate('login')" class="text-slate-600 hover:text-indigo-600 font-medium transition-colors">登入</button>
+                        <button onclick="app.navigate('register')" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-sm transition-colors">註冊</button>
+                    `;
+                }
+            },
+
+            renderMain() {
+                const main = document.getElementById('main-content');
+                main.innerHTML = ''; // 清空内容
+
+                switch (appState.currentView) {
+                    case 'home':
+                        main.innerHTML = this.views.home();
+                        break;
+                    case 'login':
+                        main.innerHTML = this.views.login();
+                        break;
+                    case 'register':
+                        main.innerHTML = this.views.register();
+                        break;
+                    case 'dashboard':
+                        main.innerHTML = this.views.dashboard();
+                        break;
+                    case 'subject':
+                        main.innerHTML = this.views.subjectDetail();
+                        break;
+                    default:
+                        main.innerHTML = this.views.login(); // 預設改為登入
+                }
+            },
+
+            // --- 视图模板 ---
+            views: {
+                home: () => `
+                    <div class="flex flex-col items-center justify-center min-h-[60vh] text-center fade-in">
+                        <div class="w-24 h-24 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-8 shadow-inner">
+                            <i class="ph-fill ph-graduation-cap text-5xl"></i>
+                        </div>
+                        <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 mb-6">掌握你的全科學習</h1>
+                        <p class="text-lg text-slate-600 mb-10 max-w-2xl">一個系統，覆蓋語文、數學、英語及四大理化生史核心科目。系統化追蹤進度，助力高效學習。</p>
+                        ${appState.currentUser ? 
+                            `<button onclick="app.navigate('dashboard')" class="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-bold rounded-xl shadow-lg transition-transform hover:-translate-y-1">進入學習中心</button>` :
+                            `<div class="flex space-x-4">
+                                <button onclick="app.navigate('login')" class="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-bold rounded-xl shadow-md transition-transform hover:-translate-y-1">立即登入</button>
+                                <button onclick="app.navigate('register')" class="px-8 py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-lg font-bold rounded-xl shadow-sm transition-transform hover:-translate-y-1">創建帳號</button>
+                            </div>`
+                        }
+                    </div>
+                `,
+
+                login: () => `
+                    <div class="flex justify-center items-center min-h-[60vh] fade-in">
+                        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100">
+                            <div class="text-center mb-8">
+                                <h2 class="text-2xl font-bold text-slate-900">歡迎登入</h2>
+                                <p class="text-slate-500 mt-2">請輸入您的用戶名和密碼</p>
+                            </div>
+                            <form onsubmit="event.preventDefault(); app.login(document.getElementById('l-user').value, document.getElementById('l-pass').value);" class="space-y-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">用戶名</label>
+                                    <input type="text" id="l-user" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" placeholder="請輸入你的用戶名" required>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">密碼</label>
+                                    <input type="password" id="l-pass" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" placeholder="請輸入你的密碼" required>
+                                </div>
+                                <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-colors">登 入</button>
+                            </form>
+                            <div class="mt-6 text-center text-sm text-slate-500">
+                                還沒有帳號？ <a href="#" onclick="event.preventDefault(); app.navigate('register');" class="text-indigo-600 font-medium hover:underline">立即註冊</a>
+                            </div>
+                        </div>
+                    </div>
+                `,
+
+                register: () => `
+                    <div class="flex justify-center items-center min-h-[60vh] fade-in">
+                        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100">
+                            <div class="text-center mb-8">
+                                <h2 class="text-2xl font-bold text-slate-900">創建新帳號</h2>
+                                <p class="text-slate-500 mt-2">加入學習系統開始您的旅程</p>
+                            </div>
+                            <form onsubmit="event.preventDefault(); app.register(document.getElementById('r-user').value, document.getElementById('r-pass').value);" class="space-y-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">設置用戶名</label>
+                                    <input type="text" id="r-user" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" required>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">設置密碼</label>
+                                    <input type="password" id="r-pass" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" required>
+                                </div>
+                                <button type="submit" class="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl shadow-md transition-colors">註 冊</button>
+                            </form>
+                            <div class="mt-6 text-center text-sm text-slate-500">
+                                已有帳號？ <a href="#" onclick="event.preventDefault(); app.navigate('login');" class="text-indigo-600 font-medium hover:underline">返回登入</a>
+                            </div>
+                        </div>
+                    </div>
+                `,
+
+                dashboard: () => `
+                    <div class="fade-in">
+                        <div class="flex justify-between items-end mb-8">
+                            <div>
+                                <h2 class="text-3xl font-bold text-slate-900">學習中心</h2>
+                                <p class="text-slate-500 mt-2">選擇一個科目繼續學習</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm text-slate-500">總進度</div>
+                                <div class="text-2xl font-bold text-indigo-600">52%</div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            ${appState.subjects.map(subject => `
+                                <div onclick="app.navigate('subject', '${subject.id}')" class="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md border border-slate-100 cursor-pointer transition-all hover:-translate-y-1 group">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div class="w-12 h-12 rounded-xl ${subject.color} flex items-center justify-center">
+                                            <i class="ph ${subject.icon} text-2xl"></i>
+                                        </div>
+                                        <div class="text-sm font-medium text-slate-400 group-hover:text-indigo-500 transition-colors">去學習 &rarr;</div>
+                                    </div>
+                                    <h3 class="text-xl font-bold text-slate-800 mb-1">${subject.name}</h3>
+                                    <p class="text-sm text-slate-500 mb-6 h-10 line-clamp-2">${subject.desc}</p>
+                                    
+                                    <!-- 进度条 -->
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-2">
+                                            <span class="font-medium text-slate-700">學習進度</span>
+                                            <span class="text-slate-500">${subject.progress}%</span>
+                                        </div>
+                                        <div class="w-full bg-slate-100 rounded-full h-2">
+                                            <div class="bg-indigo-500 h-2 rounded-full transition-all duration-1000" style="width: ${subject.progress}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `,
+
+                subjectDetail: () => {
+                    const subject = appState.subjects.find(s => s.id === appState.activeSubject);
+                    if (!subject) return this.views.dashboard();
+
+                    return `
+                        <div class="fade-in max-w-4xl mx-auto">
+                            <button onclick="app.navigate('dashboard')" class="flex items-center text-slate-500 hover:text-indigo-600 mb-6 transition-colors">
+                                <i class="ph ph-arrow-left mr-2"></i> 返回學習中心
+                            </button>
+                            
+                            <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 mb-8 flex flex-col md:flex-row items-center md:items-start gap-8">
+                                <div class="w-32 h-32 rounded-2xl ${subject.color} flex items-center justify-center shrink-0">
+                                    <i class="ph ${subject.icon} text-6xl"></i>
+                                </div>
+                                <div class="flex-grow text-center md:text-left">
+                                    <h1 class="text-4xl font-bold text-slate-900 mb-3">${subject.name}</h1>
+                                    <p class="text-lg text-slate-600 mb-6">${subject.desc}</p>
+                                    <div class="flex items-center justify-center md:justify-start space-x-4">
+                                        <div class="w-64 bg-slate-100 rounded-full h-3">
+                                            <div class="bg-indigo-500 h-3 rounded-full" style="width: ${subject.progress}%"></div>
+                                        </div>
+                                        <span class="font-bold text-slate-700">${subject.progress}% 完成</span>
+                                    </div>
+                                </div>
+                                <div class="shrink-0">
+                                    <button onclick="app.showToast('正在加載課程視頻...', 'success')" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-colors flex items-center">
+                                        <i class="ph ph-play-circle text-xl mr-2"></i> 繼續上課
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                                    <h3 class="font-bold text-slate-800">課程章節</h3>
+                                </div>
+                                <ul class="divide-y divide-slate-100">
+                                    <li class="p-6 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer" onclick="app.showToast('進入第一章', 'info')">
+                                        <div class="flex items-center">
+                                            <div class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-4">
+                                                <i class="ph ph-check"></i>
+                                            </div>
+                                            <div>
+                                                <h4 class="font-bold text-slate-800">第一章：基礎知識導論</h4>
+                                                <p class="text-sm text-slate-500">時長: 45分鐘</p>
+                                            </div>
+                                        </div>
+                                        <button class="text-indigo-600 font-medium text-sm border border-indigo-200 px-4 py-1.5 rounded-lg hover:bg-indigo-50">複習</button>
+                                    </li>
+                                    <li class="p-6 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer" onclick="app.showToast('進入第二章', 'info')">
+                                        <div class="flex items-center">
+                                            <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-4">
+                                                <i class="ph ph-play"></i>
+                                            </div>
+                                            <div>
+                                                <h4 class="font-bold text-slate-800">第二章：核心原理解析</h4>
+                                                <p class="text-sm text-slate-500">上次學習: 昨天</p>
+                                            </div>
+                                        </div>
+                                        <button class="bg-indigo-600 text-white font-medium text-sm px-4 py-1.5 rounded-lg shadow hover:bg-indigo-700">繼續學習</button>
+                                    </li>
+                                    <li class="p-6 flex items-center justify-between opacity-50">
+                                        <div class="flex items-center">
+                                            <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mr-4">
+                                                <i class="ph ph-lock-key"></i>
+                                            </div>
+                                            <div>
+                                                <h4 class="font-bold text-slate-800">第三章：進階應用與實踐</h4>
+                                                <p class="text-sm text-slate-500">需完成第二章後解鎖</p>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        };
+
+        // 启动应用
+        window.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+    </script>
+
+    <!-- Firebase 初始化代码 -->
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+
+        // Your web app's Firebase configuration
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+            apiKey: "AIzaSyBHgOem5HlgR58Gd7wHjv14kCjLiEhLVOA",
+            authDomain: "happy-learning-1234.firebaseapp.com",
+            projectId: "happy-learning-1234",
+            storageBucket: "happy-learning-1234.firebasestorage.app",
+            messagingSenderId: "243153631099",
+            appId: "1:243153631099:web:0789b5fe39146f9b99afde",
+            measurementId: "G-WS8K1BZG3C"
+        };
+
+        // Initialize Firebase
+        const firebaseApp = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(firebaseApp);
+    </script>
+</body>
+</html>
