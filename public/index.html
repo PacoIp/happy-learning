@@ -1,425 +1,678 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全科學習系統</title>
-    <!-- 引入 Tailwind CSS 进行页面样式设计 -->
+    <title>7科智能學習系統 - Happy Learning</title>
+    <!-- Tailwind CSS  CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 Phosphor Icons 作为图标库 -->
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Lucide 圖標 CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- 引入 Firebase 核心與認證 SDK (相容版) -->
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+
     <style>
-        /* 自定义一些平滑过渡动画 */
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        /* 隐藏滚动条但保留滚动功能 */
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* 自定義流暢滾動條 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+<body class="bg-slate-50 min-h-screen flex flex-col font-sans antialiased text-slate-800">
 
-    <!-- 顶部导航栏 -->
-    <header class="bg-white shadow-sm sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <!-- Logo 和 标题 -->
-                <div class="flex items-center cursor-pointer" onclick="app.navigate('home')">
-                    <i class="ph-fill ph-student text-indigo-600 text-3xl mr-2"></i>
-                    <span class="font-bold text-xl text-slate-900 tracking-tight">智學通系統</span>
+    <!-- 頂部導航欄 -->
+    <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 transition-all">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="goHome()">
+                <div class="bg-indigo-600 text-white p-2 rounded-xl shadow-md shadow-indigo-100">
+                    <i data-lucide="graduation-cap" class="w-6 h-6"></i>
                 </div>
-                
-                <!-- 右上角操作区 (动态渲染) -->
-                <div id="nav-actions" class="flex items-center space-x-4">
-                    <!-- 按钮将由 JS 渲染 -->
-                </div>
+                <span class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">Happy Learning</span>
+            </div>
+            <div class="flex items-center space-x-3">
+                <!-- 登出按鈕 -->
+                <button id="logoutBtn" onclick="handleLogout()" class="hidden px-4 py-2 text-sm font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all flex items-center gap-1">
+                    <i data-lucide="log-out" class="w-4 h-4"></i> 登出
+                </button>
             </div>
         </div>
     </header>
 
-    <!-- 消息提示框 (Toast) -->
-    <div id="toast-container" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2"></div>
+    <!-- 主體內容 -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        
+        <!-- ==================== 登入 / 註冊 區塊 ==================== -->
+        <div id="authContainer" class="max-w-md mx-auto my-12 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden transition-all duration-300">
+            <div class="flex border-b border-slate-100">
+                <button id="tabLogin" onclick="switchAuthTab('login')" class="w-1/2 py-4 text-center font-semibold text-indigo-600 border-b-2 border-indigo-600 bg-slate-50/50 transition-all">立即登入</button>
+                <button id="tabRegister" onclick="switchAuthTab('register')" class="w-1/2 py-4 text-center font-semibold text-slate-400 hover:text-slate-600 transition-all">用戶註冊</button>
+            </div>
+            
+            <div class="p-8">
+                <!-- 登入表單 -->
+                <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">用戶名 / 電子郵件</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400"><i data-lucide="user" class="w-4 h-4"></i></span>
+                            <input type="text" id="loginUsername" required placeholder="請輸入你的用戶名或 Email" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">密碼</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400"><i data-lucide="lock" class="w-4 h-4"></i></span>
+                            <input type="password" id="loginPassword" required placeholder="請輸入你的密碼" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all text-sm">
+                        </div>
+                    </div>
+                    <button id="loginSubmitBtn" type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-100 hover:shadow-indigo-200 transition-all text-sm flex items-center justify-center gap-2">
+                        驗證並登入 <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </form>
 
-    <!-- 主要内容区域 -->
-    <main id="main-content" class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        <!-- 内容将由 JS 渲染 -->
+                <!-- 註冊表單 -->
+                <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-5 hidden">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">自定義用戶名</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400"><i data-lucide="user-plus" class="w-4 h-4"></i></span>
+                            <input type="text" id="registerUsername" required placeholder="請設定你的登入用戶名" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">安全密碼 (至少6位)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400"><i data-lucide="lock" class="w-4 h-4"></i></span>
+                            <input type="password" id="registerPassword" required minlength="6" placeholder="請設定至少6位數的密碼" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all text-sm">
+                        </div>
+                    </div>
+                    <button id="registerSubmitBtn" type="submit" class="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl shadow-lg shadow-violet-100 hover:shadow-violet-200 transition-all text-sm flex items-center justify-center gap-2">
+                        連接雲端建立帳戶 <i data-lucide="cloud" class="w-4 h-4"></i>
+                    </button>
+                </form>
+
+                <div class="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200/50 text-xs text-amber-700 leading-relaxed flex items-start gap-2">
+                    <i data-lucide="info" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <strong>系統已接入 Firebase 雲端核心：</strong>
+                        <p class="mt-0.5">開發者帳號 PacoIp 已預置本地。其他用戶註冊後將永久加密儲存於 Google Firebase 雲端，支援手機與電腦同步。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 學習系統主大廳 ==================== -->
+        <div id="systemHall" class="hidden space-y-8">
+            <div class="bg-gradient-to-r from-indigo-900 to-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl shadow-slate-200">
+                <div class="absolute -right-10 -bottom-10 w-44 h-44 bg-white/5 rounded-full blur-2xl"></div>
+                <div class="absolute right-20 top-5 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl"></div>
+                <div class="relative z-10 max-w-2xl">
+                    <h1 class="text-3xl md:text-4xl font-extrabold mt-2 tracking-tight">
+                        你好，<span id="welcomeUser" class="text-indigo-300">學習者</span>！
+                    </h1>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">核心研究科目</h2>
+                    <p class="text-sm text-slate-500 mt-1">請選擇以下任一學科進入深度沉浸式學習</p>
+                </div>
+                <!-- 只有開發者顯示 -->
+                <button id="devAddSubjectBtn" onclick="openAddSubjectModal()" class="hidden px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-100 transition-all flex items-center gap-1.5">
+                    <i data-lucide="plus-circle" class="w-4.5 h-4.5"></i> 添加新科目
+                </button>
+            </div>
+
+            <div id="subjectGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+        </div>
+
+        <!-- ==================== 科目詳情 / 課堂學習頁 ==================== -->
+        <div id="subjectDetail" class="hidden space-y-6">
+            <button onclick="goHome()" class="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-all">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回學習大廳
+            </button>
+
+            <div id="subjectBanner" class="p-8 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                <div class="absolute right-6 top-6 opacity-10"><i data-lucide="book-open" class="w-32 h-32"></i></div>
+                <div class="relative z-10"><h1 id="detailSubjectName" class="text-3xl font-extrabold tracking-tight">科目名稱</h1></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                        <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="list-video" class="w-5 h-5 text-indigo-600"></i> 課時目錄
+                        </h3>
+                        <!-- 只有開發者顯示 -->
+                        <button id="devAddLessonBtn" onclick="openAddLessonModal()" class="hidden text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+                            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> 新增課時
+                        </button>
+                    </div>
+                    <div id="lessonList" class="space-y-2 max-h-[500px] overflow-y-auto pr-1"></div>
+                </div>
+
+                <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 md:p-8 min-h-[400px] flex flex-col">
+                    <div id="contentPlaceholder" class="flex-grow flex flex-col items-center justify-center text-slate-400 py-12">
+                        <div class="bg-slate-50 p-4 rounded-full mb-3"><i data-lucide="book-open" class="w-12 h-12 text-slate-300"></i></div>
+                        <p class="text-sm font-medium">請在左側選擇具體課時開始研讀</p>
+                    </div>
+                    
+                    <div id="contentDisplay" class="hidden flex-grow flex flex-col">
+                        <div class="border-b border-slate-100 pb-4 mb-5 flex justify-between items-start gap-4">
+                            <div>
+                                <h2 id="activeLessonTitle" class="text-2xl font-bold text-slate-800">課時標題</h2>
+                                <span class="inline-block bg-indigo-50 text-indigo-600 text-xs font-semibold px-2.5 py-1 rounded-md mt-2">正文課堂</span>
+                            </div>
+                            <!-- 只有開發者顯示 -->
+                            <button id="devDelLessonBtn" onclick="handleDeleteActiveLesson()" class="hidden px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-semibold transition-all flex items-center gap-1">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 刪除此課時
+                            </button>
+                        </div>
+                        <article id="activeLessonContent" class="text-slate-600 leading-relaxed text-base flex-grow whitespace-pre-line bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
+                            課時正文內容...
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
-    <footer class="bg-white border-t border-slate-200 mt-auto py-6">
-        <div class="text-center text-slate-500 text-sm">
-            &copy; 2026 智學通全科學習系統. Designed for PacoIp. 準備部署於 Firebase.
+    <!-- ==================== 提示彈出與模態視窗 ==================== -->
+    <div id="toastBox" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 transition-all duration-300 z-50 text-sm max-w-sm">
+        <i id="toastIcon" data-lucide="info" class="w-5 h-5 text-indigo-400"></i>
+        <span id="toastMsg">提示內容</span>
+    </div>
+
+    <!-- 增設新教學科目彈出框 -->
+    <div id="addSubjectModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i data-lucide="folder-plus" class="w-5 h-5 text-emerald-600"></i> 增設新教學科目</h3>
+            <form onsubmit="handleCreateSubject(event)" class="space-y-4">
+                <input type="text" id="newSubName" required placeholder="科目名稱" class="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:border-indigo-500">
+                <select id="newSubIcon" class="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none"><option value="book-open">書本</option><option value="calculator">計算器</option><option value="languages">語言</option><option value="atom">物理/原子</option><option value="beaker">化學/燒杯</option><option value="leaf">生物/葉子</option><option value="landmark">歷史/地標</option></select>
+                <select id="newSubColor" class="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none"><option value="from-rose-500 to-red-500">緋紅烈焰</option><option value="from-blue-500 to-indigo-500">蔚藍極光</option><option value="from-purple-500 to-pink-500">紫羅幻境</option><option value="from-cyan-500 to-blue-500">冰晶之藍</option><option value="from-emerald-500 to-teal-500">薄荷翠綠</option><option value="from-amber-500 to-orange-500">暖陽琥珀</option></select>
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeAddSubjectModal()" class="w-1/2 py-2 border rounded-xl hover:bg-slate-50 font-semibold text-slate-600 transition-all">取消</button>
+                    <button type="submit" class="w-1/2 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-all">確認創建</button>
+                </div>
+            </form>
         </div>
-    </footer>
+    </div>
+
+    <!-- 編寫全新課時彈出框 -->
+    <div id="addLessonModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i data-lucide="file-plus-2" class="w-5 h-5 text-emerald-600"></i> 編寫全新教學課時</h3>
+            <form onsubmit="handleCreateLesson(event)" class="space-y-4">
+                <input type="text" id="newLessonTitle" required placeholder="課時名稱 (例如：第一課：古文賞析)" class="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:border-indigo-500">
+                <textarea id="newLessonContent" rows="8" required placeholder="教學正文內容..." class="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:border-indigo-500"></textarea>
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeAddLessonModal()" class="w-1/2 py-2 border rounded-xl hover:bg-slate-50 font-semibold text-slate-600 transition-all">取消</button>
+                    <button type="submit" class="w-1/2 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-all">正式發佈課時</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 自定義完美安全刪除確認彈窗 (100% 繞過 iframe 的 alert 封鎖) -->
+    <div id="confirmModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-5 text-center animate-in fade-in zoom-in-95 duration-200">
+            <h3 id="confirmTitle" class="text-lg font-bold text-slate-800">確認刪除？</h3>
+            <p id="confirmMessage" class="text-xs text-slate-500">此操作不可撤回。</p>
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()" class="w-1/2 py-2 border rounded-xl hover:bg-slate-50 font-semibold text-slate-600 transition-all">取消</button>
+                <button id="confirmProceedBtn" class="w-1/2 py-2 bg-rose-600 text-white rounded-xl font-semibold hover:bg-rose-700 transition-all">確認刪除</button>
+            </div>
+        </div>
+    </div>
 
     <script>
-        // --- 应用程序状态与数据 ---
-        const appState = {
-            currentUser: null,
-            currentView: 'login', // 一開始就是登入頁面
-            activeSubject: null,
-            // 内存中的用户数据库 (包含默认要求的账号)
-            users: [
-                { username: 'PacoIp', password: 'eusoupacopee' }
-            ],
-            // 7个科目的数据
-            subjects: [
-                { id: 'zh', name: '語文', icon: 'ph-book-open-text', color: 'bg-red-100 text-red-600', progress: 45, desc: '古詩文與現代閱讀體驗' },
-                { id: 'ma', name: '數學', icon: 'ph-function', color: 'bg-blue-100 text-blue-600', progress: 60, desc: '邏輯思維與代數幾何' },
-                { id: 'en', name: '英語', icon: 'ph-translate', color: 'bg-purple-100 text-purple-600', progress: 30, desc: '詞彙、語法與口語聽力' },
-                { id: 'ph', name: '物理', icon: 'ph-atom', color: 'bg-cyan-100 text-cyan-600', progress: 15, desc: '力學、電磁學與量子世界' },
-                { id: 'ch', name: '化學', icon: 'ph-flask', color: 'bg-emerald-100 text-emerald-600', progress: 80, desc: '元素週期表與化學反應' },
-                { id: 'bi', name: '生物', icon: 'ph-dna', color: 'bg-green-100 text-green-600', progress: 50, desc: '細胞、遺傳與生態系統' },
-                { id: 'hi', name: '歷史', icon: 'ph-hourglass-medium', color: 'bg-amber-100 text-amber-600', progress: 90, desc: '中外歷史長河與文明演進' }
-            ]
-        };
-
-        // --- 核心控制器 ---
-        const app = {
-            init() {
-                this.render();
-            },
-
-            navigate(view, data = null) {
-                appState.currentView = view;
-                if (data && view === 'subject') {
-                    appState.activeSubject = data;
-                } else {
-                    appState.activeSubject = null;
-                }
-                
-                // 路由守卫：如果访问 dashboard 但未登录，强制去登录页
-                if (view === 'dashboard' && !appState.currentUser) {
-                    this.showToast('請先登入系統', 'warning');
-                    appState.currentView = 'login';
-                }
-
-                this.render();
-            },
-
-            login(username, password) {
-                const user = appState.users.find(u => u.username === username && u.password === password);
-                if (user) {
-                    appState.currentUser = user.username;
-                    this.showToast(`歡迎回來, ${user.username}!`, 'success');
-                    this.navigate('dashboard');
-                } else {
-                    this.showToast('用戶名或密碼錯誤，請重試', 'error');
-                }
-            },
-
-            register(username, password) {
-                if (!username || !password) {
-                    this.showToast('用戶名和密碼不能為空', 'error');
-                    return;
-                }
-                if (appState.users.some(u => u.username === username)) {
-                    this.showToast('用戶名已存在', 'error');
-                    return;
-                }
-                appState.users.push({ username, password });
-                this.showToast('註冊成功！請登入', 'success');
-                this.navigate('login');
-            },
-
-            logout() {
-                appState.currentUser = null;
-                this.showToast('您已成功登出', 'info');
-                this.navigate('login'); // 改為退回到登入頁面
-            },
-
-            showToast(message, type = 'info') {
-                const container = document.getElementById('toast-container');
-                const toast = document.createElement('div');
-                
-                let bgColor = 'bg-slate-800';
-                let icon = 'ph-info';
-                
-                if (type === 'success') { bgColor = 'bg-green-600'; icon = 'ph-check-circle'; }
-                if (type === 'error') { bgColor = 'bg-red-600'; icon = 'ph-warning-circle'; }
-                if (type === 'warning') { bgColor = 'bg-amber-500'; icon = 'ph-warning'; }
-
-                toast.className = `${bgColor} text-white px-6 py-3 rounded-full shadow-lg flex items-center space-x-2 fade-in transition-opacity duration-300`;
-                toast.innerHTML = `<i class="ph ${icon} text-xl"></i><span>${message}</span>`;
-                
-                container.appendChild(toast);
-                
-                // 3秒后移除
-                setTimeout(() => {
-                    toast.style.opacity = '0';
-                    setTimeout(() => toast.remove(), 300);
-                }, 3000);
-            },
-
-            // --- 渲染方法 ---
-            render() {
-                this.renderNav();
-                this.renderMain();
-            },
-
-            renderNav() {
-                const navActions = document.getElementById('nav-actions');
-                if (appState.currentUser) {
-                    navActions.innerHTML = `
-                        <div class="flex items-center space-x-4">
-                            <span class="text-slate-600 hidden sm:inline-block">你好, <span class="font-bold text-indigo-600">${appState.currentUser}</span></span>
-                            <button onclick="app.navigate('dashboard')" class="text-slate-600 hover:text-indigo-600 font-medium transition-colors">我的學習</button>
-                            <button onclick="app.logout()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors">登出</button>
-                        </div>
-                    `;
-                } else {
-                    navActions.innerHTML = `
-                        <button onclick="app.navigate('login')" class="text-slate-600 hover:text-indigo-600 font-medium transition-colors">登入</button>
-                        <button onclick="app.navigate('register')" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-sm transition-colors">註冊</button>
-                    `;
-                }
-            },
-
-            renderMain() {
-                const main = document.getElementById('main-content');
-                main.innerHTML = ''; // 清空内容
-
-                switch (appState.currentView) {
-                    case 'home':
-                        main.innerHTML = this.views.home();
-                        break;
-                    case 'login':
-                        main.innerHTML = this.views.login();
-                        break;
-                    case 'register':
-                        main.innerHTML = this.views.register();
-                        break;
-                    case 'dashboard':
-                        main.innerHTML = this.views.dashboard();
-                        break;
-                    case 'subject':
-                        main.innerHTML = this.views.subjectDetail();
-                        break;
-                    default:
-                        main.innerHTML = this.views.login(); // 預設改為登入
-                }
-            },
-
-            // --- 视图模板 ---
-            views: {
-                home: () => `
-                    <div class="flex flex-col items-center justify-center min-h-[60vh] text-center fade-in">
-                        <div class="w-24 h-24 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-8 shadow-inner">
-                            <i class="ph-fill ph-graduation-cap text-5xl"></i>
-                        </div>
-                        <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 mb-6">掌握你的全科學習</h1>
-                        <p class="text-lg text-slate-600 mb-10 max-w-2xl">一個系統，覆蓋語文、數學、英語及四大理化生史核心科目。系統化追蹤進度，助力高效學習。</p>
-                        ${appState.currentUser ? 
-                            `<button onclick="app.navigate('dashboard')" class="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-bold rounded-xl shadow-lg transition-transform hover:-translate-y-1">進入學習中心</button>` :
-                            `<div class="flex space-x-4">
-                                <button onclick="app.navigate('login')" class="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-bold rounded-xl shadow-md transition-transform hover:-translate-y-1">立即登入</button>
-                                <button onclick="app.navigate('register')" class="px-8 py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-lg font-bold rounded-xl shadow-sm transition-transform hover:-translate-y-1">創建帳號</button>
-                            </div>`
-                        }
-                    </div>
-                `,
-
-                login: () => `
-                    <div class="flex justify-center items-center min-h-[60vh] fade-in">
-                        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100">
-                            <div class="text-center mb-8">
-                                <h2 class="text-2xl font-bold text-slate-900">歡迎登入</h2>
-                                <p class="text-slate-500 mt-2">請輸入您的用戶名和密碼</p>
-                            </div>
-                            <form onsubmit="event.preventDefault(); app.login(document.getElementById('l-user').value, document.getElementById('l-pass').value);" class="space-y-6">
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-2">用戶名</label>
-                                    <input type="text" id="l-user" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" placeholder="請輸入你的用戶名" required>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-2">密碼</label>
-                                    <input type="password" id="l-pass" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" placeholder="請輸入你的密碼" required>
-                                </div>
-                                <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-colors">登 入</button>
-                            </form>
-                            <div class="mt-6 text-center text-sm text-slate-500">
-                                還沒有帳號？ <a href="#" onclick="event.preventDefault(); app.navigate('register');" class="text-indigo-600 font-medium hover:underline">立即註冊</a>
-                            </div>
-                        </div>
-                    </div>
-                `,
-
-                register: () => `
-                    <div class="flex justify-center items-center min-h-[60vh] fade-in">
-                        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100">
-                            <div class="text-center mb-8">
-                                <h2 class="text-2xl font-bold text-slate-900">創建新帳號</h2>
-                                <p class="text-slate-500 mt-2">加入學習系統開始您的旅程</p>
-                            </div>
-                            <form onsubmit="event.preventDefault(); app.register(document.getElementById('r-user').value, document.getElementById('r-pass').value);" class="space-y-6">
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-2">設置用戶名</label>
-                                    <input type="text" id="r-user" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" required>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-2">設置密碼</label>
-                                    <input type="password" id="r-pass" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" required>
-                                </div>
-                                <button type="submit" class="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl shadow-md transition-colors">註 冊</button>
-                            </form>
-                            <div class="mt-6 text-center text-sm text-slate-500">
-                                已有帳號？ <a href="#" onclick="event.preventDefault(); app.navigate('login');" class="text-indigo-600 font-medium hover:underline">返回登入</a>
-                            </div>
-                        </div>
-                    </div>
-                `,
-
-                dashboard: () => `
-                    <div class="fade-in">
-                        <div class="flex justify-between items-end mb-8">
-                            <div>
-                                <h2 class="text-3xl font-bold text-slate-900">學習中心</h2>
-                                <p class="text-slate-500 mt-2">選擇一個科目繼續學習</p>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-sm text-slate-500">總進度</div>
-                                <div class="text-2xl font-bold text-indigo-600">52%</div>
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            ${appState.subjects.map(subject => `
-                                <div onclick="app.navigate('subject', '${subject.id}')" class="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md border border-slate-100 cursor-pointer transition-all hover:-translate-y-1 group">
-                                    <div class="flex items-center justify-between mb-4">
-                                        <div class="w-12 h-12 rounded-xl ${subject.color} flex items-center justify-center">
-                                            <i class="ph ${subject.icon} text-2xl"></i>
-                                        </div>
-                                        <div class="text-sm font-medium text-slate-400 group-hover:text-indigo-500 transition-colors">去學習 &rarr;</div>
-                                    </div>
-                                    <h3 class="text-xl font-bold text-slate-800 mb-1">${subject.name}</h3>
-                                    <p class="text-sm text-slate-500 mb-6 h-10 line-clamp-2">${subject.desc}</p>
-                                    
-                                    <!-- 进度条 -->
-                                    <div>
-                                        <div class="flex justify-between text-xs mb-2">
-                                            <span class="font-medium text-slate-700">學習進度</span>
-                                            <span class="text-slate-500">${subject.progress}%</span>
-                                        </div>
-                                        <div class="w-full bg-slate-100 rounded-full h-2">
-                                            <div class="bg-indigo-500 h-2 rounded-full transition-all duration-1000" style="width: ${subject.progress}%"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `,
-
-                subjectDetail: () => {
-                    const subject = appState.subjects.find(s => s.id === appState.activeSubject);
-                    if (!subject) return this.views.dashboard();
-
-                    return `
-                        <div class="fade-in max-w-4xl mx-auto">
-                            <button onclick="app.navigate('dashboard')" class="flex items-center text-slate-500 hover:text-indigo-600 mb-6 transition-colors">
-                                <i class="ph ph-arrow-left mr-2"></i> 返回學習中心
-                            </button>
-                            
-                            <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 mb-8 flex flex-col md:flex-row items-center md:items-start gap-8">
-                                <div class="w-32 h-32 rounded-2xl ${subject.color} flex items-center justify-center shrink-0">
-                                    <i class="ph ${subject.icon} text-6xl"></i>
-                                </div>
-                                <div class="flex-grow text-center md:text-left">
-                                    <h1 class="text-4xl font-bold text-slate-900 mb-3">${subject.name}</h1>
-                                    <p class="text-lg text-slate-600 mb-6">${subject.desc}</p>
-                                    <div class="flex items-center justify-center md:justify-start space-x-4">
-                                        <div class="w-64 bg-slate-100 rounded-full h-3">
-                                            <div class="bg-indigo-500 h-3 rounded-full" style="width: ${subject.progress}%"></div>
-                                        </div>
-                                        <span class="font-bold text-slate-700">${subject.progress}% 完成</span>
-                                    </div>
-                                </div>
-                                <div class="shrink-0">
-                                    <button onclick="app.showToast('正在加載課程視頻...', 'success')" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-colors flex items-center">
-                                        <i class="ph ph-play-circle text-xl mr-2"></i> 繼續上課
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
-                                    <h3 class="font-bold text-slate-800">課程章節</h3>
-                                </div>
-                                <ul class="divide-y divide-slate-100">
-                                    <li class="p-6 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer" onclick="app.showToast('進入第一章', 'info')">
-                                        <div class="flex items-center">
-                                            <div class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-4">
-                                                <i class="ph ph-check"></i>
-                                            </div>
-                                            <div>
-                                                <h4 class="font-bold text-slate-800">第一章：基礎知識導論</h4>
-                                                <p class="text-sm text-slate-500">時長: 45分鐘</p>
-                                            </div>
-                                        </div>
-                                        <button class="text-indigo-600 font-medium text-sm border border-indigo-200 px-4 py-1.5 rounded-lg hover:bg-indigo-50">複習</button>
-                                    </li>
-                                    <li class="p-6 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer" onclick="app.showToast('進入第二章', 'info')">
-                                        <div class="flex items-center">
-                                            <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-4">
-                                                <i class="ph ph-play"></i>
-                                            </div>
-                                            <div>
-                                                <h4 class="font-bold text-slate-800">第二章：核心原理解析</h4>
-                                                <p class="text-sm text-slate-500">上次學習: 昨天</p>
-                                            </div>
-                                        </div>
-                                        <button class="bg-indigo-600 text-white font-medium text-sm px-4 py-1.5 rounded-lg shadow hover:bg-indigo-700">繼續學習</button>
-                                    </li>
-                                    <li class="p-6 flex items-center justify-between opacity-50">
-                                        <div class="flex items-center">
-                                            <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mr-4">
-                                                <i class="ph ph-lock-key"></i>
-                                            </div>
-                                            <div>
-                                                <h4 class="font-bold text-slate-800">第三章：進階應用與實踐</h4>
-                                                <p class="text-sm text-slate-500">需完成第二章後解鎖</p>
-                                            </div>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-        };
-
-        // 启动应用
-        window.addEventListener('DOMContentLoaded', () => {
-            app.init();
-        });
-    </script>
-
-    <!-- Firebase 初始化代码 -->
-    <script type="module">
-        // Import the functions you need from the SDKs you need
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
-        // TODO: Add SDKs for Firebase products that you want to use
-        // https://firebase.google.com/docs/web/setup#available-libraries
-
-        // Your web app's Firebase configuration
-        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        // ==================== Firebase 雲端金鑰 ====================
         const firebaseConfig = {
-            apiKey: "AIzaSyBHgOem5HlgR58Gd7wHjv14kCjLiEhLVOA",
-            authDomain: "happy-learning-1234.firebaseapp.com",
-            projectId: "happy-learning-1234",
-            storageBucket: "happy-learning-1234.firebasestorage.app",
-            messagingSenderId: "243153631099",
-            appId: "1:243153631099:web:0789b5fe39146f9b99afde",
-            measurementId: "G-WS8K1BZG3C"
+            apiKey: "AIzaSyBMauUxTHOEA-wuVds8Gn4pztm0BOTr_l4",
+            authDomain: "happy-learning-system.firebaseapp.com",
+            projectId: "happy-learning-system",
+            storageBucket: "happy-learning-system.firebasestorage.app",
+            messagingSenderId: "451690556023",
+            appId: "1:451690556023:web:ecfafd0fb26de611f1b472",
+            measurementId: "G-6BYG0GQ24R"
         };
+        
+        // 啟動 Firebase 引擎
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
 
-        // Initialize Firebase
-        const firebaseApp = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(firebaseApp);
+        // 核心開發者預置帳密
+        const DEVELOPER_USER = "PacoIp";
+        const DEVELOPER_PASS = "eusoupacopee";
+
+        // 7科預設精緻教學大綱數據
+        const defaultSubjects = [
+            {
+                id: "chinese", name: "語文", icon: "book-open", color: "from-rose-500 to-red-500",
+                lessons: [
+                    { title: "《沁園春·雪》精讀解析", content: "「江山如此多嬌，引無數英雄競折腰。」\n\n【歷史背景】這首詞作於1936年2月。當時紅軍長征到達陝北，面對白雪覆蓋的雄偉高原，革命豪情躍然紙上。\n\n【核心賞析】上闋重在寫景，展現北國冰雪封道的雄奇壯觀；下闋轉入議論，評說歷史帝王秦皇漢武，引出當代革命人民才是主宰歷史的風流人物。" },
+                    { title: "文言文文法：18個常考虛詞歸納", content: "掌握文言文，突破口在於關鍵虛詞的語境判定。\n\n【重點突破】\n1.「之」：作代詞、結構助詞（的）以及動詞（去往）的辨析。\n2.「而」：表示並列、轉折（然而）、順承關係的精準判斷方法。\n3.「以」：表示原因（因為）、工具（用）的判讀技巧。" }
+                ]
+            },
+            {
+                id: "math", name: "數學", icon: "calculator", color: "from-blue-500 to-indigo-500",
+                lessons: [
+                    { title: "導數的單調性與極值運算法則", content: "導數是分析函數單調性與尋找極值點的強力工具。\n\n【標準求值四部曲】\n1. 寫出函數 f(x) 的定義域（最重要、最容易疏忽）。\n2. 求出導函數 f'(x)。\n3. 令 f'(x) = 0，求出所有的關鍵駐點。\n4. 劃分區間，列表分析 f'(x) 的正負值，進而鎖定極大值與極小值。" }
+                ]
+            },
+            {
+                id: "english", name: "英語", icon: "languages", color: "from-purple-500 to-pink-500",
+                lessons: [
+                    { title: "高級定語從句：關係詞的精妙運用", content: "主句與從句的完美連接：Defining and Non-defining Relative Clauses.\n\n【黃金考點】\n1. 「That」與「Which」的決戰：在非限定性定語從句或緊跟介詞後，絕對不能使用「That」！\n2. 「Whose」的替換語法：Whose + 名詞 = The + 名詞 + of which." }
+                ]
+            },
+            {
+                id: "physics", name: "物理", icon: "atom", color: "from-cyan-500 to-blue-500",
+                lessons: [
+                    { title: "電磁感應：楞次定律的判斷與妙用", content: "楞次定律：感應電流的磁場，總要阻礙引起感應電流的磁通量的變化。\n\n【解題口訣：「來拒去留」】\n1. 外來磁通量增加時，感應磁場方向與原磁場相反（阻礙其增加）。\n2. 外來磁通量減少時，感應磁場方向與原磁場相同（阻礙其減少）。\n\n【應用手法】確定原磁場方向 -> 分析磁通量變化 -> 判定感應磁場 -> 透過右手螺旋定則決定感應電流方向。" }
+                ]
+            },
+            {
+                id: "chemistry", name: "化學", icon: "beaker", color: "from-emerald-500 to-teal-500",
+                lessons: [
+                    { title: "元素週期律與原子結構推導", content: "週期表是推導元素物理與化學性質的最強地圖。\n\n【核心遞變規律】\n- 同週期（由左至右）：原子半徑漸小，金屬性減弱，非金屬性增強。\n- 同主族（由上至下）：原子半徑漸大，金屬性增強，非金屬性減弱。" }
+                ]
+            },
+            {
+                id: "biology", name: "生物", icon: "leaf", color: "from-green-500 to-emerald-600",
+                lessons: [
+                    { title: "光合作用光反應與碳反應全圖解", content: "光合作用是能量流入生物圈的核心樞紐。\n\n【光反應】（場所：類囊體薄膜）\n- 光能被葉綠素吸收，水被光解產生氧氣與 [H]，同時把能量儲存到 ATP 中。\n\n【碳反應】（場所：葉綠體基質）\n- CO2 的固定與 C3 的還原，利用光反應產生的 [H] 和 ATP 生成有機物（糖類）。" }
+                ]
+            },
+            {
+                id: "history", name: "歷史", icon: "landmark", color: "from-amber-500 to-orange-500",
+                lessons: [
+                    { title: "兩次工業革命的科技跨越與世界重塑", content: "「蒸汽機」與「發電機」如何開啟現代文明進程。\n\n【第一次工業革命】\n- 以英國為核心，煤炭為新動力源，蒸汽機普遍裝配，工廠制度確立。\n\n【第二次工業革命】\n- 多國同時起跑，電力與內燃機強勢登場，重工業取代輕工業，世界市場最終成型。" }
+                ]
+            }
+        ];
+
+        // 全局狀態
+        let currentUser = null;
+        let subjects = [];
+        let activeSubjectId = null;
+        let activeLessonIndex = null;
+        let confirmCallback = null;
+
+        // 核心安全機制：自動維持登入
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // 從臨時 Email 中解出原始用戶名
+                const username = user.email.split('@')[0];
+                currentUser = { username: username, isDeveloper: false };
+                enterSystem();
+            }
+        });
+
+        // ==================== 彈出提示模組 ====================
+        function showToast(msg, iconName = 'info', delay = 4000) {
+            const toast = document.getElementById('toastBox');
+            const toastMsg = document.getElementById('toastMsg');
+            document.getElementById('toastIcon').setAttribute('data-lucide', iconName);
+            toastMsg.innerText = msg;
+            lucide.createIcons();
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            if(window.toastTimer) clearTimeout(window.toastTimer);
+            window.toastTimer = setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, delay);
+        }
+
+        function showConfirm(title, message, onProceed) {
+            document.getElementById('confirmTitle').innerText = title;
+            document.getElementById('confirmMessage').innerText = message;
+            confirmCallback = onProceed;
+            document.getElementById('confirmModal').classList.remove('hidden');
+            document.getElementById('confirmModal').classList.add('flex');
+            document.getElementById('confirmProceedBtn').onclick = function() {
+                if (confirmCallback) confirmCallback();
+                closeConfirmModal();
+            };
+        }
+        
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            document.getElementById('confirmModal').classList.remove('flex');
+        }
+
+        // ==================== 課程數據持久化 ====================
+        function initData() {
+            let storedSubjects = localStorage.getItem('happy_learning_subjects');
+            if (storedSubjects) {
+                subjects = JSON.parse(storedSubjects);
+            } else {
+                subjects = defaultSubjects;
+                localStorage.setItem('happy_learning_subjects', JSON.stringify(subjects));
+            }
+        }
+
+        function renderNavbar() {
+            const logoutBtn = document.getElementById('logoutBtn');
+            const devBtns = ['devAddSubjectBtn', 'devAddLessonBtn', 'devDelLessonBtn'];
+            
+            if (currentUser) {
+                if(logoutBtn) logoutBtn.classList.remove('hidden');
+                devBtns.forEach(id => {
+                    const btn = document.getElementById(id);
+                    if(btn) currentUser.isDeveloper ? btn.classList.remove('hidden') : btn.classList.add('hidden');
+                });
+            } else {
+                if(logoutBtn) logoutBtn.classList.add('hidden');
+                devBtns.forEach(id => {
+                    const btn = document.getElementById(id);
+                    if(btn) btn.classList.add('hidden');
+                });
+            }
+            lucide.createIcons();
+        }
+
+        function switchAuthTab(type) {
+            if (type === 'login') {
+                document.getElementById('tabLogin').className = "w-1/2 py-4 text-center font-semibold text-indigo-600 border-b-2 border-indigo-600 bg-slate-50/50 transition-all";
+                document.getElementById('tabRegister').className = "w-1/2 py-4 text-center font-semibold text-slate-400 hover:text-slate-600 transition-all";
+                document.getElementById('loginForm').classList.remove('hidden');
+                document.getElementById('registerForm').classList.add('hidden');
+            } else {
+                document.getElementById('tabRegister').className = "w-1/2 py-4 text-center font-semibold text-violet-600 border-b-2 border-violet-600 bg-slate-50/50 transition-all";
+                document.getElementById('tabLogin').className = "w-1/2 py-4 text-center font-semibold text-slate-400 hover:text-slate-600 transition-all";
+                document.getElementById('registerForm').classList.remove('hidden');
+                document.getElementById('loginForm').classList.add('hidden');
+            }
+        }
+
+        // ==================== 進階登入邏輯 ====================
+        function handleLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('loginUsername').value.trim();
+            const p = document.getElementById('loginPassword').value.trim();
+            const btn = document.getElementById('loginSubmitBtn');
+
+            // 1. 本地超級管理員 PacoIp 通道 (即刻給予最高增刪改權限)
+            if (u === DEVELOPER_USER && p === DEVELOPER_PASS) {
+                currentUser = { username: u, isDeveloper: true };
+                showToast("尊貴的開發者 PacoIp，您已登入並啟動最高教研管理特權！", "shield-check");
+                enterSystem();
+                return;
+            }
+
+            btn.innerText = "連線雲端資料庫中...";
+            
+            // 2. 自動判斷輸入的是標準 Email 還是純用戶名
+            const emailToSend = u.includes('@') ? u : `${u}@happylearning.local`;
+            
+            auth.signInWithEmailAndPassword(emailToSend, p)
+                .then((userCredential) => {
+                    showToast(`歡迎回來，${u}！系統已從雲端載入您的個人進度。`, "check-circle-2");
+                    btn.innerHTML = `驗證並登入 <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+                    lucide.createIcons();
+                })
+                .catch((error) => {
+                    btn.innerHTML = `驗證並登入 <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+                    lucide.createIcons();
+                    console.error("Firebase Auth Error:", error);
+
+                    // 精準提示
+                    if (error.code === 'auth/operation-not-allowed') {
+                        showToast("登入失敗：請前往 Firebase 控制台開啟 Email/Password 的 Enable 開關！", "shield-alert");
+                    } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                        showToast("登入失敗：用戶名或密碼不正確，請重新輸入！", "x-circle");
+                    } else if (error.code === 'auth/invalid-email') {
+                        showToast("登入失敗：輸入的格式不合規，請勿帶有空格或特殊字符！", "alert-triangle");
+                    } else {
+                        showToast(`錯誤：${error.message}`, "x-circle");
+                    }
+                });
+        }
+
+        // ==================== 進階雲端註冊邏輯 ====================
+        function handleRegister(e) {
+            e.preventDefault();
+            const u = document.getElementById('registerUsername').value.trim();
+            const p = document.getElementById('registerPassword').value.trim();
+            const btn = document.getElementById('registerSubmitBtn');
+
+            if (u === DEVELOPER_USER) {
+                showToast(`保護限制：系統不允許註冊名為 ${DEVELOPER_USER} 的公用帳號。`, "shield-alert");
+                return;
+            }
+
+            btn.innerText = "雲端檔案安全加密中...";
+            const emailToSend = u.includes('@') ? u : `${u}@happylearning.local`;
+
+            auth.createUserWithEmailAndPassword(emailToSend, p)
+                .then((userCredential) => {
+                    showToast("帳號創建成功！帳密已加密存入 Firebase 雲端伺服器。", "cloud-lightning");
+                    btn.innerHTML = `連接雲端創建帳戶 <i data-lucide="cloud" class="w-4 h-4"></i>`;
+                    lucide.createIcons();
+                })
+                .catch((error) => {
+                    btn.innerHTML = `連接雲端創建帳戶 <i data-lucide="cloud" class="w-4 h-4"></i>`;
+                    lucide.createIcons();
+                    console.error("Firebase Reg Error:", error);
+
+                    if (error.code === 'auth/operation-not-allowed') {
+                        showToast("註冊失敗：請先去 Firebase 啟用「電子郵件/密碼」認證功能！", "shield-alert");
+                    } else if (error.code === 'auth/email-already-in-use') {
+                        showToast("註冊失敗：該用戶名已被註冊過，請換一個！", "user-minus");
+                    } else if (error.code === 'auth/weak-password') {
+                        showToast("註冊失敗：密碼太短，請至少輸入 6 位數密碼！", "alert-triangle");
+                    } else if (error.code === 'auth/invalid-email') {
+                        showToast("註冊失敗：用戶名不合規（請勿含有空格或特殊符號）！", "alert-triangle");
+                    } else {
+                        showToast(`註冊失敗：${error.message}`, "x-circle");
+                    }
+                });
+        }
+
+        // 登出
+        function handleLogout() {
+            if (currentUser && !currentUser.isDeveloper) {
+                auth.signOut();
+            }
+            
+            currentUser = null;
+            document.getElementById('loginUsername').value = "";
+            document.getElementById('loginPassword').value = "";
+            document.getElementById('registerUsername').value = "";
+            document.getElementById('registerPassword').value = "";
+
+            document.getElementById('authContainer').classList.remove('hidden');
+            document.getElementById('systemHall').classList.add('hidden');
+            document.getElementById('subjectDetail').classList.add('hidden');
+            renderNavbar();
+            showToast("您已成功安全登出系統。", "log-out");
+        }
+
+        // ==================== 頁面渲染邏輯 ====================
+        function enterSystem() {
+            document.getElementById('authContainer').classList.add('hidden');
+            document.getElementById('systemHall').classList.remove('hidden');
+            document.getElementById('subjectDetail').classList.add('hidden');
+            document.getElementById('welcomeUser').innerText = currentUser.username;
+            renderNavbar();
+            renderSubjectGrid();
+        }
+
+        function goHome() {
+            if (currentUser) {
+                document.getElementById('authContainer').classList.add('hidden');
+                document.getElementById('systemHall').classList.remove('hidden');
+                document.getElementById('subjectDetail').classList.add('hidden');
+                renderSubjectGrid();
+            }
+        }
+
+        function renderSubjectGrid() {
+            const grid = document.getElementById('subjectGrid');
+            grid.innerHTML = "";
+            subjects.forEach((sub) => {
+                const subCard = document.createElement('div');
+                subCard.className = "bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative";
+                subCard.setAttribute('onclick', `openSubjectDetail('${sub.id}')`);
+                
+                let deleteBtnHtml = (currentUser && currentUser.isDeveloper) ? 
+                    `<button onclick="handleDeleteSubject(event, '${sub.id}')" class="absolute top-4 right-4 text-slate-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-all z-20"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : "";
+                
+                subCard.innerHTML = `${deleteBtnHtml}
+                    <div class="bg-gradient-to-br ${sub.color} text-white p-3 rounded-xl w-12 h-12 flex items-center justify-center shadow-md"><i data-lucide="${sub.icon || 'book-open'}" class="w-6 h-6"></i></div>
+                    <h3 class="text-lg font-bold text-slate-800 mt-5">${sub.name}</h3>`;
+                grid.appendChild(subCard);
+            });
+            lucide.createIcons();
+        }
+
+        function openSubjectDetail(subId) {
+            activeSubjectId = subId;
+            activeLessonIndex = null;
+            const sub = subjects.find(s => s.id === subId);
+            if (!sub) return;
+            document.getElementById('systemHall').classList.add('hidden');
+            document.getElementById('subjectDetail').classList.remove('hidden');
+            document.getElementById('detailSubjectName').innerText = sub.name;
+            renderLessonsList();
+            renderLessonContent();
+        }
+
+        function renderLessonsList() {
+            const list = document.getElementById('lessonList');
+            list.innerHTML = "";
+            const sub = subjects.find(s => s.id === activeSubjectId);
+            if (!sub || !sub.lessons || sub.lessons.length === 0) {
+                list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">暫無課時</p>`;
+                return;
+            }
+            sub.lessons.forEach((lesson, i) => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left px-4 py-3 rounded-xl text-sm font-medium border ${activeLessonIndex === i ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-transparent hover:bg-slate-100 transition-all'}`;
+                btn.setAttribute('onclick', `selectLesson(${i})`);
+                btn.innerHTML = `${lesson.title}`;
+                list.appendChild(btn);
+            });
+        }
+
+        function selectLesson(index) {
+            activeLessonIndex = index;
+            renderLessonsList();
+            renderLessonContent();
+        }
+
+        function renderLessonContent() {
+            const placeholder = document.getElementById('contentPlaceholder');
+            const display = document.getElementById('contentDisplay');
+            const sub = subjects.find(s => s.id === activeSubjectId);
+            if (activeLessonIndex === null || !sub || !sub.lessons[activeLessonIndex]) {
+                placeholder.classList.remove('hidden');
+                display.classList.add('hidden');
+                return;
+            }
+            placeholder.classList.add('hidden');
+            display.classList.remove('hidden');
+            document.getElementById('activeLessonTitle').innerText = sub.lessons[activeLessonIndex].title;
+            document.getElementById('activeLessonContent').innerText = sub.lessons[activeLessonIndex].content;
+        }
+
+        // ==================== 開發者管理行為 ====================
+        function handleDeleteSubject(event, subId) {
+            event.stopPropagation();
+            const sub = subjects.find(s => s.id === subId);
+            showConfirm("確認刪除科目", `您確定要將科目《${sub.name}》從課表上徹底移除嗎？`, function() {
+                subjects = subjects.filter(s => s.id !== subId);
+                localStorage.setItem('happy_learning_subjects', JSON.stringify(subjects));
+                showToast(`科目《${sub.name}》已成功移除。`, "trash-2");
+                goHome();
+            });
+        }
+        
+        function openAddSubjectModal() { 
+            document.getElementById('addSubjectModal').classList.remove('hidden'); 
+            document.getElementById('addSubjectModal').classList.add('flex'); 
+        }
+        
+        function closeAddSubjectModal() { 
+            document.getElementById('addSubjectModal').classList.add('hidden'); 
+            document.getElementById('addSubjectModal').classList.remove('flex'); 
+        }
+        
+        function handleCreateSubject(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('newSubName').value.trim();
+            const iconSelect = document.getElementById('newSubIcon').value;
+            const colorSelect = document.getElementById('newSubColor').value;
+            
+            subjects.push({ 
+                id: "sub_" + Date.now(), 
+                name: nameInput, 
+                icon: iconSelect, 
+                color: colorSelect, 
+                lessons: [] 
+            });
+            localStorage.setItem('happy_learning_subjects', JSON.stringify(subjects));
+            showToast(`學科《${nameInput}》已新增上線！`, "folder-plus");
+            closeAddSubjectModal(); 
+            renderSubjectGrid();
+            document.getElementById('newSubName').value = "";
+        }
+        
+        function openAddLessonModal() { 
+            document.getElementById('addLessonModal').classList.remove('hidden'); 
+            document.getElementById('addLessonModal').classList.add('flex'); 
+        }
+        
+        function closeAddLessonModal() { 
+            document.getElementById('addLessonModal').classList.add('hidden'); 
+            document.getElementById('addLessonModal').classList.remove('flex'); 
+        }
+        
+        function handleCreateLesson(e) {
+            e.preventDefault();
+            const titleInput = document.getElementById('newLessonTitle').value.trim();
+            const contentInput = document.getElementById('newLessonContent').value.trim();
+            
+            const sub = subjects.find(s => s.id === activeSubjectId);
+            if (!sub.lessons) sub.lessons = [];
+            
+            sub.lessons.push({ 
+                title: titleInput, 
+                content: contentInput 
+            });
+            localStorage.setItem('happy_learning_subjects', JSON.stringify(subjects));
+            showToast(`課時《${titleInput}》發佈成功！`, "file-plus-2");
+            
+            closeAddLessonModal(); 
+            openSubjectDetail(activeSubjectId);
+            
+            document.getElementById('newLessonTitle').value = "";
+            document.getElementById('newLessonContent').value = "";
+        }
+        
+        function handleDeleteActiveLesson() {
+            const sub = subjects.find(s => s.id === activeSubjectId);
+            const lesson = sub.lessons[activeLessonIndex];
+            showConfirm("確認刪除課時", `確定刪除課時《${lesson.title}》嗎？`, function() {
+                sub.lessons.splice(activeLessonIndex, 1);
+                localStorage.setItem('happy_learning_subjects', JSON.stringify(subjects));
+                showToast("該課時內容已成功下線。", "trash-2");
+                openSubjectDetail(activeSubjectId);
+            });
+        }
+
+        window.onload = function() {
+            initData();
+            lucide.createIcons();
+        };
     </script>
 </body>
 </html>
